@@ -89,6 +89,7 @@ def caller_process(model, qin, qout):
                 qout.put(None)
                 break 
             signal = item[1]
+            print("s", signal.shape)
             output = caller_network(torch.tensor(signal).cuda())
             qout.put((item[0], output, item[2]))
     print("caller done")
@@ -111,6 +112,7 @@ def finalizer_process(qin, qout, beam_size, beam_cut_threshold):
             b_out = b_out.cpu().numpy()
 
             for bound, out, c in zip(bounds, b_out, crop):
+                print(bound, out.shape, c)
                 if bound is not None:
                     if len(cur_out) > 0:
                         qout.put((cur_name, "".join(cur_out), "".join(cur_qual)))
@@ -126,11 +128,6 @@ def finalizer_process(qin, qout, beam_size, beam_cut_threshold):
             qout.put((cur_name, "".join(cur_out), "".join(cur_qual)))
 
 def batch_process(qin, qout, b_len, s_len, pad):
-    def preprocess_signal(data):
-        b_signal = np.stack(data)
-        b_signal = b_signal.reshape((b_len, s_len, 1))
-        return b_signal
-
     item = "wait"
     while item != None:
         data, crop, bounds = [], [], []
@@ -143,21 +140,8 @@ def batch_process(qin, qout, b_len, s_len, pad):
             if item is None:
                 break
             signal, metadata = item
-            for b, s, c in signal_to_chunks(signal, metadata, s_len, pad):
-                crop.append(c)
-                data.append(s)
-                bounds.append(b)
-                if len(data) == b_len:
-                    b_signal = preprocess_signal(data)
-                    qout.put((bounds, b_signal, crop))
-                    data, crop, bounds = [], [], []
-        if len(data) > 0:
-            while len(data) < b_len:
-                crop.append(slice(0, 0))
-                data.append(data[-1])
-                bounds.append(None)
-            b_signal = preprocess_signal(data)
-            qout.put((bounds, b_signal, crop))
+            rescaled_signal = rescale_signal(signal).reshape(1, len(signal), 1)
+            qout.put(([metadata], rescaled_signal, [slice(0, len(signal))]))
         qout.put("wait")
 
     qout.put(None)
