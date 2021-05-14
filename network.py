@@ -99,10 +99,10 @@ class SignalEncoder(nn.Module):
     def forward(self, x):
         with torch.cuda.amp.autocast(enabled=True): 
             print("start size", x.shape)
-            first_chunks, first_pads = batchify(x, 3000, 50)
+            first_chunks, first_pads = batchify(x, 2048, 50, 32)
             x_evs = self.do_pool(first_chunks, first_pads)
 
-            second_chunks, second_pads = batchify(x_evs, 1200, 50)
+            second_chunks, second_pads = batchify(x_evs, 512*3, 20, 32)
 
             out = []
             for sc, sp in zip(second_chunks, second_pads):
@@ -234,6 +234,52 @@ def create_network():
     model.eval()
     model.cpu()
     model.s.cuda()
+
+    torch.quantization.fuse_modules(model, [
+        ('s.e.encoder.1.residual.0.conv', 's.e.encoder.1.residual.1'),
+        ('s.e.encoder.1.conv.2', 's.e.encoder.1.conv.3'),
+
+        ('s.e.encoder.2.residual.0.conv', 's.e.encoder.2.residual.1'),
+        ('s.e.encoder.2.conv.2', 's.e.encoder.2.conv.3'),
+        ('s.e.encoder.2.conv.6.pointwise', 's.e.encoder.2.conv.7'),
+        ('s.e.encoder.2.conv.10.pointwise', 's.e.encoder.2.conv.11'),
+        ('s.e.encoder.2.conv.14.pointwise', 's.e.encoder.2.conv.15'),
+        ('s.e.encoder.2.conv.18.pointwise', 's.e.encoder.2.conv.19'),
+        ('s.e.encoder.2.conv.22.pointwise', 's.e.encoder.2.conv.23'),
+        
+        ('s.e.encoder.3.residual.0.conv', 's.e.encoder.3.residual.1'),
+        ('s.e.encoder.3.conv.2', 's.e.encoder.3.conv.3'),
+        ('s.e.encoder.3.conv.6.pointwise', 's.e.encoder.3.conv.7'),
+        ('s.e.encoder.3.conv.10.pointwise', 's.e.encoder.3.conv.11'),
+        
+        ('s.e.encoder.4.residual.0.conv', 's.e.encoder.4.residual.1'),
+        ('s.e.encoder.4.conv.2', 's.e.encoder.4.conv.3'),
+        ('s.e.encoder.4.conv.6.pointwise', 's.e.encoder.4.conv.7'),
+        ('s.e.encoder.4.conv.10.pointwise', 's.e.encoder.4.conv.11'),
+        ('s.e.encoder.4.conv.14.pointwise', 's.e.encoder.4.conv.15'),
+        ('s.e.encoder.4.conv.18.pointwise', 's.e.encoder.4.conv.19'),
+        ('s.e.encoder.4.conv.22.pointwise', 's.e.encoder.4.conv.23'),
+        ('s.e.encoder.4.conv.26.pointwise', 's.e.encoder.4.conv.27'),
+        ('s.e.encoder.4.conv.30.pointwise', 's.e.encoder.4.conv.31'),
+        
+        ('s.e.encoder.5.residual.0.conv', 's.e.encoder.5.residual.1'),
+        ('s.e.encoder.5.conv.2', 's.e.encoder.5.conv.3'),
+        ('s.e.encoder.5.conv.6.pointwise', 's.e.encoder.5.conv.7'),
+        ('s.e.encoder.5.conv.10.pointwise', 's.e.encoder.5.conv.11'),
+        ('s.e.encoder.5.conv.14.pointwise', 's.e.encoder.5.conv.15'),
+        ('s.e.encoder.5.conv.18.pointwise', 's.e.encoder.5.conv.19'),
+        
+        ('s.e.encoder.6.conv.0.pointwise', 's.e.encoder.6.conv.1'),
+        ('s.e.encoder.7.conv.0.conv', 's.e.encoder.7.conv.1'),
+
+        ('s.e.encoder.0.conv.0.conv', 's.e.encoder.0.conv.1'),
+        ('s.e.encoder.0.predictor.0', 's.e.encoder.0.predictor.1'),
+        ('s.e.encoder.0.predictor.3', 's.e.encoder.0.predictor.4'),
+        
+    ], inplace=True)
+
+    print(model.s.e.encoder)
+
     return model.s
 
 def create_decoder():

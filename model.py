@@ -204,7 +204,6 @@ class BlockDP(Module):
     def row_pool(self, features, moves, weights):
         fw = features * weights.to(features.dtype).unsqueeze(1)
         
-        
         poses = torch.cumsum(moves.detach(), 0)
         
         poses = poses.unsqueeze(1)
