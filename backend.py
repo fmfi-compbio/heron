@@ -79,6 +79,7 @@ def signal_to_chunks(raw_signal, metadata, s_len, pad):
 
 def caller_process(model, qin, qout):
     caller_network = create_network()
+    tc = 0
     with torch.no_grad():
         while True:
             item = qin.get()
@@ -89,15 +90,16 @@ def caller_process(model, qin, qout):
                 qout.put(None)
                 break 
             signal = item[1]
-            print("s", signal.shape)
+            tc += 1
             output = caller_network(torch.tensor(signal).cuda())
             qout.put((item[0], output, item[2]))
-    print("caller done")
+    print("caller done", tc)
 
 def finalizer_process(qin, qout, beam_size, beam_cut_threshold):
     decoder = create_decoder() 
 
     item = "wait"
+    tc = 0
     while item == "wait":
         cur_name = ""
         cur_out = []
@@ -108,11 +110,12 @@ def finalizer_process(qin, qout, beam_size, beam_cut_threshold):
             if item is None or item == "wait":
                 break
 
-            bounds, (b_out, lens), crop = item
+            bounds, b_out, crop = item
             b_out = b_out.cpu().numpy()
 
             for bound, out, c in zip(bounds, b_out, crop):
-                print(bound, out.shape, c)
+                tc += 1
+                print("bo", tc, bound, out.shape, c)
                 if bound is not None:
                     if len(cur_out) > 0:
                         qout.put((cur_name, "".join(cur_out), "".join(cur_qual)))
@@ -169,6 +172,7 @@ class Basecaller:
 
 
     def terminate(self):
+        print("terminating")
         self.final_proc.join(1)
         self.caller_proc.join(1)
         self.batcher_proc.join(1)

@@ -7,6 +7,44 @@ import toml
 import decoder.decoder as d
 import numpy as np
 from itertools import product
+from datetime import datetime
+
+torch.backends.cudnn.benchmark = True
+torch.set_grad_enabled(False)
+
+def batchify(x, size, padding, max_batch_size=50):
+    seq_size = x.shape[1]
+    start_pos = 0
+
+    pads = []
+    chunks = []
+
+    while start_pos < seq_size:
+        if start_pos + size > seq_size:
+            start = seq_size - size
+            end = seq_size
+            end_pad = size
+            start_pad = (start_pos + padding) - start
+        else:
+            start = start_pos
+            end = start_pos + size
+            start_pad = 0 if start == 0 else padding
+            end_pad = size - padding
+
+        chunks.append(x[0,start:end,:])
+        pads.append((start_pad, end_pad))
+
+        start_pos += size - 2*padding
+
+    out_chunks = []
+    out_pads = []
+    for i in range(0, len(chunks), max_batch_size):
+        out_chunks.append(torch.stack(chunks[i:i+max_batch_size], dim=0))
+        out_pads.append(pads[i:i+max_batch_size])
+
+    return out_chunks, out_pads
+            
+
 
 class SignalEncoder(nn.Module):
     def __init__(self, encoder):
@@ -28,33 +66,55 @@ class SignalEncoder(nn.Module):
                 _x += m.residual(x) * mask
             return m.activation(_x) * mask
         return run
-    
+
+    def do_pool(self, first_chunks, first_pads):
+        enc = self.e.encoder[0]
+
+        all_features = []
+        all_jumps = []
+        for fc, fp in zip(first_chunks, first_pads):
+            fc = fc.permute(0,2,1)
+            _x = fc
+            for layer in enc.conv:
+                _x = layer(_x)
+            _x = enc.activation(_x)
+            jumps_mat = torch.sigmoid(enc.predictor(torch.cat([fc, fc*fc], dim=1)))
+            for rf, rj, (ps, pe) in zip(_x.permute(0,2,1), jumps_mat.permute(0,2,1), fp):
+                all_features.append(rf[ps:pe])
+                all_jumps.append(rj[ps:pe])
+
+        with torch.cuda.amp.autocast(enabled=False): 
+            features = torch.cat(all_features, dim=0)
+            jumps = torch.cat(all_jumps).to(torch.float32)
+
+            weights = jumps[:,0]
+            moves = jumps[:,1] * enc.norm_mean
+
+            pooled = enc.row_pool(features, moves, weights).unsqueeze(0)
+
+
+        return pooled
+
         
     def forward(self, x):
-        with torch.cuda.amp.autocast(enabled=False): 
-            #print("start size", x.shape)
-            shape = x.shape
-            x = x.permute((0,2,1))
-            x_evs, lens, moves, _ = self.e.encoder[0](x)
-            
-            mask = torch.ones((x_evs.shape[0], 1, x_evs.shape[2])).cuda()
-            masksm = torch.ones((x_evs.shape[0], 1, x_evs.shape[2] // 3)).cuda()
-            for i, l in enumerate(lens):
-                mask[i,:,l:] = 0
-                masksm[i,:,(l+2)//3:] = 0
-        
-            #print(x_evs.shape)
-            for block in self.e.encoder[1:]:
-                #x_evs = checkpoint(self.run_m(block, mask), x_evs)
-                x_evs = self.run_m(block, mask, masksm)(x_evs)
-                #print(x_evs.shape, lens, mask.shape)
-                #x_evs = x_evs * mask
-                
-            #print("after c", x.shape)
-            x_evs = x_evs.permute((0,2,1))
-            #print(b - a, c - b, d - c, e - d, x_evs.cpu().shape, samples.shape)
-            lens = torch.IntTensor(lens).cuda()
-            return x_evs, lens#, x.shape[2] / moves.sum(dim=1)
+        with torch.cuda.amp.autocast(enabled=True): 
+            print("start size", x.shape)
+            first_chunks, first_pads = batchify(x, 3000, 50)
+            x_evs = self.do_pool(first_chunks, first_pads)
+
+            second_chunks, second_pads = batchify(x_evs, 1200, 50)
+
+            out = []
+            for sc, sp in zip(second_chunks, second_pads):
+                x_evs = sc.permute(0, 2, 1)
+                for block in self.e.encoder[1:]:
+                    x_evs = block(x_evs)
+                x_evs = x_evs.permute((0,2,1)).float().cpu()
+
+                for r, (ps, pe) in zip(x_evs, sp):
+                    out.append(r[ps:pe])
+            res = torch.cat(out, dim=0).unsqueeze(0)
+            return res
 
     
 class BaseEncoder(nn.Module):
@@ -206,7 +266,6 @@ def create_decoder():
     model.eval()
     model.cpu()
     
-    torch.set_grad_enabled(False)
 
     small_tables = []
 

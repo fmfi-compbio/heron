@@ -7,6 +7,7 @@ from torch.jit import script
 from torch.autograd import Function
 from torch.nn import ReLU, LeakyReLU
 from torch.nn import Module, ModuleList, Sequential, Conv1d, BatchNorm1d, Dropout, ConvTranspose1d
+from datetime import datetime
 
 @script
 def swish_jit_fwd(x):
@@ -201,7 +202,7 @@ class BlockDP(Module):
         return nn.GLU(dim=1), Dropout(p=dropout)
 
     def row_pool(self, features, moves, weights):
-        fw = features * weights.unsqueeze(1)
+        fw = features * weights.to(features.dtype).unsqueeze(1)
         
         
         poses = torch.cumsum(moves.detach(), 0)
@@ -211,14 +212,13 @@ class BlockDP(Module):
         floors = torch.floor(poses)
         ceils = floors + 1
         
-        w1 = (1 - (poses - floors))
-        w2 = (1 - (ceils - poses))
-       
+        w1 = (1 - (poses - floors)).to(features.dtype)
+        w2 = (1 - (ceils - poses)).to(features.dtype)
+
         out = torch.zeros((int(ceils[-1].item())+1, features.shape[1])).to(features.device).to(features.dtype)
-        
-        #print(out.shape, (w1 * fw).shape)
-        out.scatter_add_(0, floors.to(torch.long).repeat_interleave(features.shape[1], dim=1), w1*fw)
-        out.scatter_add_(0, ceils.to(torch.long).repeat_interleave(features.shape[1], dim=1), w2*fw)
+       
+        out.index_add_(0, floors.to(torch.long).squeeze(1), w1*fw)
+        out.index_add_(0, ceils.to(torch.long).squeeze(1), w2*fw)
             
         return out
 

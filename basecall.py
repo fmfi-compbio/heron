@@ -204,12 +204,12 @@ if __name__ == "__main__":
 
             drain_result_queue(20, False)
 
-        qin.put(None)
         drain_result_queue(0, True)
     except KeyboardInterrupt as error:
         print("Interrupted, cleaning up...")
         pass
 
+    qin.put(None)
     caller.terminate()
 
     fin_time = datetime.datetime.now()
