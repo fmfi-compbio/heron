@@ -102,18 +102,18 @@ class SignalEncoder(nn.Module):
             first_chunks, first_pads = batchify(x, 2048, 50, 32)
             x_evs = self.do_pool(first_chunks, first_pads)
 
-            second_chunks, second_pads = batchify(x_evs, 512*3, 20, 32)
+            second_chunks, second_pads = batchify(x_evs, 512*3, 20, 16)
 
             out = []
             for sc, sp in zip(second_chunks, second_pads):
                 x_evs = sc.permute(0, 2, 1)
                 for block in self.e.encoder[1:]:
                     x_evs = block(x_evs)
-                x_evs = x_evs.permute((0,2,1)).float().cpu()
+                x_evs = x_evs.permute((0,2,1))
 
                 for r, (ps, pe) in zip(x_evs, sp):
                     out.append(r[ps:pe])
-            res = torch.cat(out, dim=0).unsqueeze(0)
+            res = torch.cat(out, dim=0).unsqueeze(0).float()
             return res
 
     

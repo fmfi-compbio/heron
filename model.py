@@ -203,9 +203,9 @@ class BlockDP(Module):
 
     def row_pool(self, features, moves, weights):
         fw = features * weights.to(features.dtype).unsqueeze(1)
-        
+   
         poses = torch.cumsum(moves.detach(), 0)
-        
+       
         poses = poses.unsqueeze(1)
         
         floors = torch.floor(poses)
@@ -214,7 +214,7 @@ class BlockDP(Module):
         w1 = (1 - (poses - floors)).to(features.dtype)
         w2 = (1 - (ceils - poses)).to(features.dtype)
 
-        out = torch.zeros((int(ceils[-1].item())+1, features.shape[1])).to(features.device).to(features.dtype)
+        out = torch.zeros((int(ceils[-1].item())+1, features.shape[1]), device=features.device, dtype=features.dtype)
        
         out.index_add_(0, floors.to(torch.long).squeeze(1), w1*fw)
         out.index_add_(0, ceils.to(torch.long).squeeze(1), w2*fw)
