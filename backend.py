@@ -1,7 +1,4 @@
 import numpy as np
-#from scipy.special import softmax
-#from fast_ctc_decode import beam_search
-#from deepnano2 import beam_search_with_quals
 from datetime import datetime
 import torch.multiprocessing as mp
 import queue

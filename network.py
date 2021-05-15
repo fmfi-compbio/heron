@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 from model import Model
-from bonito import model as bmodel
-import bonito
 import toml
 import decoder.decoder as d
 import numpy as np
@@ -11,6 +9,8 @@ from datetime import datetime
 
 torch.backends.cudnn.benchmark = True
 torch.set_grad_enabled(False)
+
+cfgx = {'model': 'dna_r9.4.1', 'labels': {'labels': ['N', 'A', 'C', 'G', 'T']}, 'input': {'features': 1}, 'encoder': {'activation': 'swish'}, 'block': [{'filters': 344, 'repeat': 1, 'kernel': [9], 'stride': [3], 'dilation': [1], 'dropout': 0.05, 'residual': False, 'separable': False, 'type': 'dynpool', 'norm': 3, 'predictor_size': 128}, {'filters': 424, 'repeat': 2, 'kernel': [39], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 848}, {'filters': 464, 'repeat': 7, 'kernel': [3], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 928}, {'filters': 456, 'repeat': 4, 'kernel': [41], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 912}, {'filters': 440, 'repeat': 9, 'kernel': [3], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 880}, {'filters': 280, 'repeat': 6, 'kernel': [11], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 560}, {'filters': 384, 'repeat': 1, 'kernel': [67], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': False, 'separable': True}, {'filters': 48, 'repeat': 1, 'kernel': [15], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': False, 'separable': False}]}  
 
 def batchify(x, size, padding, max_batch_size=50):
     seq_size = x.shape[1]
@@ -205,20 +205,6 @@ class Net(nn.Module):
         return self.j(s, b), s, b
 
 def create_network():
-    cfgx = toml.load(bonito.__path__[0] + "/models/configs/dna_r9.4.1.toml")
-    cfgx["block"][0]["type"] = "dynpool"
-    cfgx["block"][0]["norm"] = 3
-    cfgx["block"][0]["predictor_size"] = 128
-
-    for b in cfgx['block']:
-        if b["residual"]:
-            b["type"] = 'BlockX'
-            b["pool"] = 3
-            b["inner_size"] = int(b["filters"]*2)
-            kern = max(3, b["kernel"][0] // 3)
-            kern = kern // 2 * 2 + 1
-            b["kernel"] = [kern]
-
     bmodelx = Model(cfgx)
         
     
@@ -283,20 +269,6 @@ def create_network():
     return model.s
 
 def create_decoder():
-    cfgx = toml.load(bonito.__path__[0] + "/models/configs/dna_r9.4.1.toml")
-    cfgx["block"][0]["type"] = "dynpool"
-    cfgx["block"][0]["norm"] = 3
-    cfgx["block"][0]["predictor_size"] = 128
-
-    for b in cfgx['block']:
-        if b["residual"]:
-            b["type"] = 'BlockX'
-            b["pool"] = 3
-            b["inner_size"] = int(b["filters"]*2)
-            kern = max(3, b["kernel"][0] // 3)
-            kern = kern // 2 * 2 + 1
-            b["kernel"] = [kern]
-
     bmodelx = Model(cfgx)
         
     
