@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from model import Model
+from model import Encoder
 import toml
 import decoder.decoder as d
 import numpy as np
@@ -10,7 +10,7 @@ from datetime import datetime
 torch.backends.cudnn.benchmark = True
 torch.set_grad_enabled(False)
 
-cfgx = {'model': 'dna_r9.4.1', 'labels': {'labels': ['N', 'A', 'C', 'G', 'T']}, 'input': {'features': 1}, 'encoder': {'activation': 'swish'}, 'block': [{'filters': 344, 'repeat': 1, 'kernel': [9], 'stride': [3], 'dilation': [1], 'dropout': 0.05, 'residual': False, 'separable': False, 'type': 'dynpool', 'norm': 3, 'predictor_size': 128}, {'filters': 424, 'repeat': 2, 'kernel': [39], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 848}, {'filters': 464, 'repeat': 7, 'kernel': [3], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 928}, {'filters': 456, 'repeat': 4, 'kernel': [41], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 912}, {'filters': 440, 'repeat': 9, 'kernel': [3], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 880}, {'filters': 280, 'repeat': 6, 'kernel': [11], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 560}, {'filters': 384, 'repeat': 1, 'kernel': [67], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': False, 'separable': True}, {'filters': 48, 'repeat': 1, 'kernel': [15], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': False, 'separable': False}]}  
+cfgx = {'input': {'features': 1}, 'encoder': {'activation': 'swish'}, 'block': [{'filters': 344, 'repeat': 1, 'kernel': [9], 'stride': [3], 'dilation': [1], 'dropout': 0.05, 'residual': False, 'separable': False, 'type': 'dynpool', 'norm': 3, 'predictor_size': 128}, {'filters': 424, 'repeat': 2, 'kernel': [39], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 848}, {'filters': 464, 'repeat': 7, 'kernel': [3], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 928}, {'filters': 456, 'repeat': 4, 'kernel': [41], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 912}, {'filters': 440, 'repeat': 9, 'kernel': [3], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 880}, {'filters': 280, 'repeat': 6, 'kernel': [11], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': True, 'separable': True, 'type': 'BlockX', 'pool': 3, 'inner_size': 560}, {'filters': 384, 'repeat': 1, 'kernel': [67], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': False, 'separable': True}, {'filters': 48, 'repeat': 1, 'kernel': [15], 'stride': [1], 'dilation': [1], 'dropout': 0.05, 'residual': False, 'separable': False}]}  
 
 def batchify(x, size, padding, max_batch_size=50):
     seq_size = x.shape[1]
@@ -205,10 +205,7 @@ class Net(nn.Module):
         return self.j(s, b), s, b
 
 def create_network():
-    bmodelx = Model(cfgx)
-        
-    
-    sencoder = SignalEncoder(bmodelx.encoder)
+    sencoder = SignalEncoder(Encoder(cfgx))
     be = BaseEncoder()
 
     joiner = Joiner()
@@ -269,10 +266,7 @@ def create_network():
     return model.s
 
 def create_decoder():
-    bmodelx = Model(cfgx)
-        
-    
-    sencoder = SignalEncoder(bmodelx.encoder)
+    sencoder = SignalEncoder(Encoder(cfgx))
     be = BaseEncoder()
 
     joiner = Joiner()

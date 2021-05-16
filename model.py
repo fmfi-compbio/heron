@@ -9,76 +9,6 @@ from torch.nn import ReLU, LeakyReLU
 from torch.nn import Module, ModuleList, Sequential, Conv1d, BatchNorm1d, Dropout, ConvTranspose1d
 from datetime import datetime
 
-@script
-def swish_jit_fwd(x):
-    return x * sigmoid(x)
-
-
-@script
-def swish_jit_bwd(x, grad):
-    x_s = sigmoid(x)
-    return grad * (x_s * (1 + x * (1 - x_s)))
-
-
-class SwishAutoFn(Function):
-
-    @staticmethod
-    def symbolic(g, x):
-        return g.op('Swish', x)
-
-    @staticmethod
-    def forward(ctx, x):
-        ctx.save_for_backward(x)
-        return swish_jit_fwd(x)
-
-    @staticmethod
-    def backward(ctx, grad):
-        x = ctx.saved_tensors[0]
-        return swish_jit_bwd(x, grad)
-
-
-class Swish(Module):
-    """
-    Swish Activation function
-    https://arxiv.org/abs/1710.05941
-    """
-    def forward(self, x):
-        return SwishAutoFn.apply(x)
-
-
-activations = {
-    "relu": ReLU,
-    "swish": Swish,
-}
-
-
-class Model(Module):
-    """
-    Model template for QuartzNet style architectures
-    https://arxiv.org/pdf/1910.10261.pdf
-    """
-    def __init__(self, config):
-        super(Model, self).__init__()
-
-        self.config = config
-        self.stride = config['block'][0]['stride'][0]
-        self.alphabet = config['labels']['labels']
-        self.features = config['block'][-1]['filters']
-        self.encoder = Encoder(config)
-
-    def forward(self, x):
-        encoded = self.encoder(x)
-        return self.decoder(encoded)
-
-    def decode(self, x, beamsize=5, threshold=1e-3, qscores=False, return_path=False):
-        if beamsize == 1 or qscores:
-            seq, path  = viterbi_search(x, self.alphabet, qscores, self.qscale, self.qbias)
-        else:
-            seq, path = beam_search(x, self.alphabet, beamsize, threshold)
-        if return_path: return seq, path
-        return seq
-
-
 class Encoder(Module):
     """
     Builds the model encoder
@@ -88,7 +18,7 @@ class Encoder(Module):
         self.config = config
 
         features = self.config['input']['features']
-        activation = activations[self.config['encoder']['activation']]()
+        activation = None
         encoder_layers = []
 
         for layer in self.config['block']:
@@ -182,10 +112,10 @@ class BlockDP(Module):
         self.predictor = torch.nn.Sequential(
             torch.nn.Conv1d(2, prediction_size, 31, stride=1, padding=15),
             torch.nn.BatchNorm1d(prediction_size),
-            Swish(),
+            torch.nn.SiLU(),
             torch.nn.Conv1d(prediction_size, prediction_size, 15, stride=1, padding=7),
             torch.nn.BatchNorm1d(prediction_size),
-            Swish(),
+            torch.nn.SiLU(),
             torch.nn.Conv1d(prediction_size, 2, 15, stride=1, padding=7)
         )
 
