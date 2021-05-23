@@ -4,6 +4,7 @@
 
 * Install trans-decoder (`https://github.com/fmfi-compbio/transducer_decoder`)
 * Install requirements `pip install -r requirements.txt`
+* Download `http://compbio.fmph.uniba.sk/heron/network.pth` into weights directory.
 
 ## Running 
 
