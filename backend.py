@@ -74,8 +74,8 @@ def signal_to_chunks(raw_signal, metadata, s_len, pad):
 
         yield (bound, signal, crop)
 
-def caller_process(model, qin, qout):
-    caller_network = create_network()
+def caller_process(model_file, qin, qout):
+    caller_network = create_network(model_file)
     tc = 0
     with torch.no_grad():
         while True:
@@ -92,8 +92,8 @@ def caller_process(model, qin, qout):
             qout.put((item[0], output, item[2]))
     print("caller done", tc)
 
-def finalizer_process(qin, qout, beam_size, beam_cut_threshold):
-    decoder = create_decoder() 
+def finalizer_process(model_file, qin, qout, beam_size, beam_cut_threshold):
+    decoder = create_decoder(model_file) 
 
     item = "wait"
     tc = 0
@@ -161,7 +161,7 @@ class Basecaller:
 
         self.batcher_proc = mp.Process(target=batch_process, args=(self.input_q, self.call_q, b_len, s_len, pad)) 
         self.caller_proc = mp.Process(target=caller_process, args=(model_file, self.call_q, self.final_q))
-        self.final_proc = mp.Process(target=finalizer_process, args=(self.final_q, self.output_q, beam_size, beam_cut_threshold)) 
+        self.final_proc = mp.Process(target=finalizer_process, args=(model_file, self.final_q, self.output_q, beam_size, beam_cut_threshold)) 
 
         self.batcher_proc.start()
         self.caller_proc.start()

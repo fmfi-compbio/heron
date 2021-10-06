@@ -76,7 +76,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output", type=str, required=True, help="Output FASTA file name"
     )
-    parser.add_argument("--model",)
+    parser.add_argument("--model", type=str, default="weights/network.pth")
     parser.add_argument(
         "--beam-size",
         type=int,

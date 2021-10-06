@@ -204,7 +204,7 @@ class Net(nn.Module):
         b = self.b(y)
         return self.j(s, b), s, b
 
-def create_network():
+def create_network(model_file):
     sencoder = SignalEncoder(Encoder(cfgx))
     be = BaseEncoder()
 
@@ -212,7 +212,7 @@ def create_network():
 
     model = Net(sencoder, be, joiner)
     
-    model.load_state_dict(torch.load("weights/network.pth"))
+    model.load_state_dict(torch.load(model_file))
 
     model.eval()
     model.cpu()
@@ -265,7 +265,7 @@ def create_network():
 
     return model.s
 
-def create_decoder():
+def create_decoder(model_file):
     sencoder = SignalEncoder(Encoder(cfgx))
     be = BaseEncoder()
 
@@ -273,7 +273,7 @@ def create_decoder():
 
     model = Net(sencoder, be, joiner)
     
-    model.load_state_dict(torch.load("weights/network.pth"))
+    model.load_state_dict(torch.load(model_file))
 
     model.eval()
     model.cpu()
